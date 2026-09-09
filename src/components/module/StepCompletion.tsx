@@ -1,5 +1,7 @@
 'use client'
 
+import Image from 'next/image'
+
 interface Props {
   moduleName: string
   moduleNumber: number
@@ -31,6 +33,17 @@ export default function StepCompletion({
   return (
     <div className="max-w-lg mx-auto px-4 py-12 text-center">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 space-y-6">
+        {/* Logo BioPar */}
+        <div className="flex justify-center -mb-2">
+          <Image
+            src="/logobiopar.webp"
+            alt="BioPar"
+            width={112}
+            height={40}
+            className="h-7 w-auto object-contain opacity-90"
+          />
+        </div>
+
         {/* Ícone de conclusão */}
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto shadow-inner">
           <span className="text-4xl">{isCourseCompleted ? '🏆' : '🎉'}</span>

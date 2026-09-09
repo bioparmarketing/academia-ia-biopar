@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -93,15 +94,26 @@ export default async function AdminUserDetailPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-gray-50 pb-12">
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-4">
-          <Link href="/admin" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1.5 font-medium">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Voltar ao Painel Admin
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/admin" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1.5 font-medium">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Voltar ao Painel Admin
+            </Link>
+            <span className="text-gray-300">/</span>
+            <span className="text-sm text-gray-700 font-medium truncate">{student.full_name || student.email}</span>
+          </div>
+          <Link href="/" className="flex items-center group">
+            <Image
+              src="/logobiopar.webp"
+              alt="BioPar"
+              width={95}
+              height={34}
+              className="h-6 w-auto object-contain opacity-85 transition-opacity group-hover:opacity-100"
+            />
           </Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-sm text-gray-700 font-medium truncate">{student.full_name || student.email}</span>
         </div>
       </header>
 

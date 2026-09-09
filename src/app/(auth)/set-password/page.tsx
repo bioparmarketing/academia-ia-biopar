@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 export default function SetPasswordPage() {
   const router = useRouter()
@@ -67,10 +68,15 @@ export default function SetPasswordPage() {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-white flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-600 rounded-2xl mb-4 shadow-lg">
-            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+          <div className="inline-flex items-center justify-center px-6 py-3 bg-white rounded-2xl mb-4 shadow-sm border border-gray-100">
+            <Image
+              src="/logobiopar.webp"
+              alt="BioPar"
+              width={160}
+              height={57}
+              className="h-10 w-auto object-contain"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Definir sua Senha</h1>
           <p className="text-gray-500 mt-1 text-sm">Crie sua senha de acesso à Academia de IA BioPar.</p>

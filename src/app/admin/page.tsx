@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import InviteUserModal from '@/components/admin/InviteUserModal'
 
 export const dynamic = 'force-dynamic'
@@ -123,14 +124,22 @@ export default async function AdminPage() {
       {/* Header Admin */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-            </div>
-            <span className="font-semibold text-gray-800 text-sm">Academia de IA BioPar</span>
-            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full ml-1 font-medium">Painel Admin</span>
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center group">
+              <Image
+                src="/logobiopar.webp"
+                alt="BioPar"
+                width={112}
+                height={40}
+                className="h-7 w-auto object-contain transition-transform group-hover:scale-105"
+                priority
+              />
+            </Link>
+            <span className="hidden sm:inline-block text-gray-300 font-light">|</span>
+            <span className="font-semibold text-gray-800 text-sm hidden sm:block">Academia de IA</span>
+            <span className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full font-medium ml-1">
+              Painel Admin
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <Link
