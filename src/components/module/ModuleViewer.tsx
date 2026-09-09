@@ -62,7 +62,10 @@ export default function ModuleViewer({ module, activities, initialProgress, cour
         moduleName={module.title}
         moduleNumber={module.number}
         score={finalScore}
-        onBack={() => router.push('/')}
+        onBack={() => {
+          router.push('/')
+          router.refresh()
+        }}
       />
     )
   }
