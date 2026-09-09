@@ -9,12 +9,16 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
   const [department, setDepartment] = useState('')
   const [role, setRole] = useState<'student' | 'admin'>('student')
   const [loading, setLoading] = useState(false)
+  const [generatedLink, setGeneratedLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setMessage(null)
+    setGeneratedLink(null)
+    setCopied(false)
 
     try {
       const res = await fetch('/api/admin/invite', {
@@ -35,16 +39,17 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
       }
 
       setMessage({ type: 'success', text: data.message })
-      setEmail('')
-      setFullName('')
-      setDepartment('')
-      setRole('student')
-      if (onUserInvited) onUserInvited()
+      if (data.actionUrl) {
+        setGeneratedLink(data.actionUrl)
+      } else {
+        // Se foi enviado e-mail com sucesso e não precisa de link manual
+        setEmail('')
+        setFullName('')
+        setDepartment('')
+        setRole('student')
+      }
 
-      setTimeout(() => {
-        setIsOpen(false)
-        setMessage(null)
-      }, 3000)
+      if (onUserInvited) onUserInvited()
 
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Erro ao processar convite.'
@@ -52,6 +57,21 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
     } finally {
       setLoading(false)
     }
+  }
+
+  function handleCopy() {
+    if (generatedLink) {
+      navigator.clipboard.writeText(generatedLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
+  }
+
+  function handleClose() {
+    setIsOpen(false)
+    setMessage(null)
+    setGeneratedLink(null)
+    setCopied(false)
   }
 
   return (
@@ -72,7 +92,7 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">Novo Colaborador</h3>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={handleClose}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-lg cursor-pointer"
               >
                 ✕
@@ -80,7 +100,7 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
             </div>
 
             <p className="text-xs text-gray-500 mb-6">
-              Será disparado um e-mail com link exclusivo para que a pessoa cadastre sua própria senha e acesse a plataforma.
+              Será disparado um convite oficial com link exclusivo para que a pessoa cadastre sua própria senha e acesse a plataforma.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -157,7 +177,7 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
 
               {message && (
                 <div
-                  className={`p-3 rounded-xl text-xs font-medium ${
+                  className={`p-3 rounded-xl text-xs font-medium leading-relaxed ${
                     message.type === 'success'
                       ? 'bg-green-50 text-green-700 border border-green-200'
                       : 'bg-red-50 text-red-700 border border-red-200'
@@ -167,21 +187,45 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
                 </div>
               )}
 
+              {/* Se foi gerado link direto de ativação */}
+              {generatedLink && (
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
+                  <p className="text-xs font-semibold text-gray-700">Link Direto de Ativação:</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={generatedLink}
+                      className="w-full bg-white px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 select-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleCopy}
+                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition shrink-0 cursor-pointer"
+                    >
+                      {copied ? 'Copiado! ✓' : 'Copiar'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={handleClose}
                   className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 transition cursor-pointer"
                 >
-                  Cancelar
+                  {generatedLink ? 'Fechar' : 'Cancelar'}
                 </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white text-sm font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {loading ? 'Disparando...' : 'Enviar Convite'}
-                </button>
+                {!generatedLink && (
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white text-sm font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {loading ? 'Disparando...' : 'Enviar Convite'}
+                  </button>
+                )}
               </div>
             </form>
           </div>

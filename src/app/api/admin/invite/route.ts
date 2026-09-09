@@ -44,7 +44,10 @@ export async function POST(request: NextRequest) {
       ? origin
       : (process.env.NEXT_PUBLIC_SITE_URL || 'https://academia-ia-biopar-three.vercel.app')
 
-    // inviteUserByEmail dispara o e-mail oficial do Supabase para o usuário definir sua senha
+    let actionUrl: string | undefined = undefined
+    let messageText = `Convite enviado com sucesso para ${email}! O usuário receberá um link para cadastrar sua senha.`
+
+    // Tenta primeiro o envio oficial por e-mail
     const { data: inviteData, error: inviteError } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
       data: {
         full_name: full_name || '',
@@ -54,41 +57,57 @@ export async function POST(request: NextRequest) {
       redirectTo: `${siteUrl}/set-password`
     })
 
-    // 4. Se o usuário já existe, gerar novo link de recuperação/definição de senha
     if (inviteError) {
-      if (inviteError.message.includes('already registered') || inviteError.message.includes('already been registered')) {
-        const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
-          type: 'recovery',
-          email,
-          options: { redirectTo: `${siteUrl}/set-password` }
-        })
-
-        if (linkError) {
-          return NextResponse.json({ error: 'Usuário já cadastrado, mas ocorreu um erro ao gerar link de redefinição.' }, { status: 400 })
+      // Se estourou o limite de e-mails ou se o usuário já existe: gerar o link diretamente
+      if (
+        inviteError.message.includes('rate limit') || 
+        inviteError.message.includes('already registered') || 
+        inviteError.message.includes('already been registered')
+      ) {
+        let linkResult
+        if (inviteError.message.includes('already registered') || inviteError.message.includes('already been registered')) {
+          linkResult = await adminSupabase.auth.admin.generateLink({
+            type: 'recovery',
+            email,
+            options: { redirectTo: `${siteUrl}/set-password` }
+          })
+        } else {
+          linkResult = await adminSupabase.auth.admin.generateLink({
+            type: 'invite',
+            email,
+            options: {
+              data: {
+                full_name: full_name || '',
+                role: selectedRole,
+                department: department || ''
+              },
+              redirectTo: `${siteUrl}/set-password`
+            }
+          })
         }
 
-        // Atualizar perfil com o papel/departamento caso tenha mudado
-        const { data: existingUser } = await adminSupabase.from('profiles').select('id').eq('email', email).single()
-        if (existingUser?.id) {
-          await adminSupabase.from('profiles').update({
-            full_name: full_name || undefined,
-            role: selectedRole,
-            department: department || undefined
-          }).eq('id', existingUser.id)
-        }
+        const { data: linkData, error: linkError } = linkResult
 
-        return NextResponse.json({
-          success: true,
-          actionUrl: linkData?.properties?.action_link,
-          message: `O e-mail ${email} já possui cadastro! Um novo link para definir a senha foi gerado.`
-        })
+        if (!linkError && linkData?.properties?.action_link) {
+          actionUrl = linkData.properties.action_link
+          messageText = `Colaborador cadastrado! Como o limite de e-mails do Supabase foi atingido, copie o link de ativação abaixo para enviar ao colaborador.`
+
+          if (linkData.user?.id) {
+            await adminSupabase.from('profiles').upsert({
+              id: linkData.user.id,
+              email,
+              full_name: full_name || '',
+              role: selectedRole,
+              department: department || ''
+            })
+          }
+        } else {
+          return NextResponse.json({ error: inviteError.message }, { status: 400 })
+        }
+      } else {
+        return NextResponse.json({ error: inviteError.message }, { status: 400 })
       }
-
-      return NextResponse.json({ error: inviteError.message }, { status: 400 })
-    }
-
-    // 4. Garantir que o perfil foi criado ou atualizado com o papel correto
-    if (inviteData?.user?.id) {
+    } else if (inviteData?.user?.id) {
       await adminSupabase.from('profiles').upsert({
         id: inviteData.user.id,
         email,
@@ -100,7 +119,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       success: true, 
-      message: `Convite enviado com sucesso para ${email}! O usuário receberá um link para cadastrar sua senha.` 
+      actionUrl,
+      message: messageText 
     })
 
   } catch (error) {
