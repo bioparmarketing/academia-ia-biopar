@@ -35,6 +35,7 @@ export default function StepAIPractice({ step, activityId, userId, onNext }: Pro
           prompt,
           instructions: step.instructions,
           hints: step.hints,
+          activity_id: activityId,
         }),
       })
 
