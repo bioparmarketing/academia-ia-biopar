@@ -3,12 +3,8 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
-interface ProgressRow {
-  id: string
-  status: string
-  score: number | null
-  modules: { number: number; title: string } | null
-}
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 interface AttemptRow {
   id: string
@@ -17,7 +13,6 @@ interface AttemptRow {
   created_at: string
   activities: { title: string; activity_type: string } | null
 }
-
 
 interface Props {
   params: Promise<{ id: string }>
@@ -51,12 +46,22 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
   if (!student) redirect('/admin')
 
+  // Buscar todos os módulos do curso
+  const { data: allModules } = await adminClient
+    .from('modules')
+    .select('id, number, title')
+    .order('number')
+
   // Buscar progresso do aluno
   const { data: progress } = await adminClient
     .from('user_progress')
     .select('*, modules(number, title)')
     .eq('user_id', id)
-    .order('modules(number)')
+
+  const progressMap = new Map<string, { status: string; score: number | null }>()
+  progress?.forEach((p) => {
+    progressMap.set(p.module_id, { status: p.status, score: p.score })
+  })
 
   // Buscar tentativas
   const { data: attempts } = await adminClient
@@ -66,9 +71,11 @@ export default async function AdminUserDetailPage({ params }: Props) {
     .order('created_at', { ascending: false })
     .limit(20)
 
+  const totalModules = allModules?.length ?? 10
   const completedCount = progress?.filter((p) => p.status === 'completed').length ?? 0
   const scores = progress?.filter((p) => p.score !== null).map((p) => p.score as number) ?? []
   const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
+  const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -93,20 +100,25 @@ export default async function AdminUserDetailPage({ params }: Props) {
               <h1 className="text-xl font-bold text-gray-900">{student.full_name || '—'}</h1>
               <p className="text-gray-500 text-sm mt-0.5">{student.email}</p>
               {student.department && (
-                <p className="text-xs text-gray-400 mt-1">📍 {student.department}</p>
+                <p className="text-xs text-gray-500 mt-1 font-medium">📍 {student.department}</p>
               )}
             </div>
-            <div className="flex gap-4 text-center">
+            <div className="flex gap-6 text-center">
               <div>
-                <p className="text-2xl font-bold text-gray-800">{completedCount}/10</p>
-                <p className="text-xs text-gray-400">Módulos</p>
+                <p className="text-2xl font-bold text-gray-800">{completedCount}/{totalModules}</p>
+                <p className="text-xs text-gray-400 font-medium">Módulos Concluídos</p>
               </div>
-              {avgScore !== null && (
+              {avgScore !== null ? (
                 <div>
                   <p className={`text-2xl font-bold ${avgScore >= 75 ? 'text-green-600' : 'text-yellow-600'}`}>
                     {avgScore}%
                   </p>
-                  <p className="text-xs text-gray-400">Média</p>
+                  <p className="text-xs text-gray-400 font-medium">Média das Avaliações</p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-2xl font-bold text-gray-400">—</p>
+                  <p className="text-xs text-gray-400 font-medium">Média</p>
                 </div>
               )}
             </div>
@@ -114,63 +126,85 @@ export default async function AdminUserDetailPage({ params }: Props) {
 
           {/* Barra de progresso */}
           <div className="mt-6">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Progresso do curso</span>
-              <span>{completedCount * 10}%</span>
+            <div className="flex justify-between text-xs text-gray-600 font-medium mb-1.5">
+              <span>Progresso geral do curso</span>
+              <span className="text-green-600 font-bold">{progressPercent}%</span>
             </div>
-            <div className="w-full bg-gray-100 rounded-full h-2">
+            <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
               <div
-                className="bg-green-500 h-2 rounded-full transition-all"
-                style={{ width: `${completedCount * 10}%` }}
+                className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
+                style={{ width: `${progressPercent}%` }}
               />
             </div>
           </div>
         </div>
 
-        {/* Progresso por módulo */}
-        {progress && progress.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-800">Módulos</h2>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {(progress as unknown as ProgressRow[]).map((p) => (
-                <div key={p.id} className="px-6 py-4 flex items-center justify-between">
-                  <div>
-                    {p.modules && <p className="text-sm font-medium text-gray-800">Módulo {p.modules.number}: {p.modules.title}</p>}
+        {/* Progresso por módulo (Todos os 10 módulos) */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="font-semibold text-gray-800">Status dos Módulos</h2>
+            <span className="text-xs text-gray-400">{completedCount} de {totalModules} concluídos</span>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {allModules?.map((mod, index) => {
+              const userProg = progressMap.get(mod.id)
+              const isCompleted = userProg?.status === 'completed'
+              const isInProgress = userProg?.status === 'in_progress'
+              const isUnlocked = index === 0 || (allModules && progressMap.get(allModules[index - 1].id)?.status === 'completed')
+
+              return (
+                <div key={mod.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50/60 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                      isCompleted
+                        ? 'bg-green-100 text-green-700'
+                        : isInProgress
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : isUnlocked
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-gray-100 text-gray-400'
+                    }`}>
+                      {isCompleted ? '✓' : mod.number}
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">
+                        Módulo {mod.number}: {mod.title}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {p.score != null && (
-                      <span className="text-sm font-medium text-gray-600">{p.score}%</span>
+                    {userProg?.score != null && (
+                      <span className="text-sm font-bold text-gray-700">{userProg.score}%</span>
                     )}
                     <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                      p.status === 'completed' ? 'bg-green-100 text-green-700' :
-                      p.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-500'
+                      isCompleted ? 'bg-green-100 text-green-700' :
+                      isInProgress ? 'bg-yellow-100 text-yellow-700' :
+                      isUnlocked ? 'bg-blue-50 text-blue-700' :
+                      'bg-gray-100 text-gray-400'
                     }`}>
-                      {p.status === 'completed' ? 'Concluído' : p.status === 'in_progress' ? 'Em andamento' : 'Não iniciado'}
+                      {isCompleted ? 'Concluído' : isInProgress ? 'Em andamento' : isUnlocked ? 'Liberado' : 'Bloqueado'}
                     </span>
                   </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
-        )}
+        </div>
 
-        {/* Últimas tentativas */}
+        {/* Últimas atividades */}
         {attempts && attempts.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-gray-100">
-              <h2 className="font-semibold text-gray-800">Últimas atividades</h2>
+              <h2 className="font-semibold text-gray-800">Últimas atividades realizadas</h2>
             </div>
             <div className="divide-y divide-gray-100">
               {(attempts as unknown as AttemptRow[]).map((attempt) => (
                 <div key={attempt.id} className="px-6 py-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{attempt.activities?.title ?? '—'}</p>
+                      <p className="text-sm font-medium text-gray-800">{attempt.activities?.title ?? 'Atividade'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {new Date(attempt.created_at).toLocaleDateString('pt-BR')}
+                        {new Date(attempt.created_at).toLocaleString('pt-BR')}
                       </p>
                     </div>
                     {attempt.score != null && (

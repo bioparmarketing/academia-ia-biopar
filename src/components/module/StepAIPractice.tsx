@@ -47,16 +47,6 @@ export default function StepAIPractice({ step, activityId, userId, onNext }: Pro
       setEvaluation(data)
       setAttemptCount((c) => c + 1)
 
-      // Salvar tentativa
-      await fetch('/api/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          module_id: activityId, // será ignorado no progresso do módulo
-          course_id: 'placeholder',
-          status: 'in_progress',
-        }),
-      }).catch(() => {}) // silenciar erros de tentativa
 
       if (data.can_continue) {
         setPhase('done')

@@ -4,6 +4,9 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import InviteUserModal from '@/components/admin/InviteUserModal'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 export default async function AdminPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -35,38 +38,49 @@ export default async function AdminPage() {
     .from('user_progress')
     .select('*')
 
+  const { data: allModules } = await adminClient
+    .from('modules')
+    .select('id, number, title')
+    .order('number')
+
+  const studentIds = new Set(allProfiles?.map((s) => s.id) ?? [])
+  const studentProgress = allProgress?.filter((p) => studentIds.has(p.user_id)) ?? []
+
   const totalStudents = allProfiles?.length ?? 0
-  const completedModules = allProgress?.filter((p) => p.status === 'completed').length ?? 0
-  const activeStudents = new Set(allProgress?.map((p) => p.user_id)).size
+  const completedModules = studentProgress.filter((p) => p.status === 'completed').length
+  const activeStudents = new Set(studentProgress.map((p) => p.user_id)).size
 
-  // Calcular progresso médio
-  const progressByUser = new Map<string, number>()
-  allProgress?.forEach((p) => {
-    if (p.status === 'completed') {
-      progressByUser.set(p.user_id, (progressByUser.get(p.user_id) ?? 0) + 1)
-    }
-  })
+  // Calcular progresso médio da turma
+  const totalPossible = totalStudents * 10
+  const avgProgress = totalPossible > 0 ? Math.round((completedModules / totalPossible) * 100) : 0
 
-  const avgProgress = totalStudents > 0
-    ? Math.round(
-        Array.from(progressByUser.values()).reduce((a, b) => a + b, 0) /
-          totalStudents * 10
-      )
-    : 0
-
-  // Enriquecer perfis com progresso
+  // Enriquecer perfis com progresso detalhado
   const studentsWithProgress = allProfiles?.map((student) => {
-    const completed = allProgress?.filter(
-      (p) => p.user_id === student.id && p.status === 'completed'
-    ).length ?? 0
-    const scores = allProgress
-      ?.filter((p) => p.user_id === student.id && p.score !== null)
-      .map((p) => p.score as number) ?? []
+    const studentRecords = allProgress?.filter((p) => p.user_id === student.id) ?? []
+    const completedRecords = studentRecords.filter((p) => p.status === 'completed')
+    const completed = completedRecords.length
+
+    const scores = completedRecords
+      .filter((p) => p.score !== null && p.score !== undefined)
+      .map((p) => p.score as number)
+
     const avgScore = scores.length > 0
       ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
       : null
-    const inProgress = allProgress?.filter((p) => p.user_id === student.id && p.status === 'in_progress') ?? []
-    const currentModule = inProgress.length > 0 ? 'Em andamento' : completed > 0 ? `${completed} concluídos` : 'Não iniciado'
+
+    const inProgressRecord = studentRecords.find((p) => p.status === 'in_progress')
+
+    let currentModule = 'Não iniciado'
+    if (inProgressRecord) {
+      const inProgMod = allModules?.find((m) => m.id === inProgressRecord.module_id)
+      currentModule = inProgMod ? `Módulo ${inProgMod.number} (Em andamento)` : 'Em andamento'
+    } else if (completed === 10) {
+      currentModule = '✅ Concluído (10/10)'
+    } else if (completed > 0) {
+      const completedIds = new Set(completedRecords.map((c) => c.module_id))
+      const nextMod = allModules?.find((m) => !completedIds.has(m.id))
+      currentModule = nextMod ? `Módulo ${nextMod.number} (Aguardando)` : `${completed} concluídos`
+    }
 
     return { ...student, completed, avgScore, currentModule }
   }) ?? []
@@ -83,7 +97,7 @@ export default async function AdminPage() {
               </svg>
             </div>
             <span className="font-semibold text-gray-800 text-sm">Academia de IA BioPar</span>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full ml-1">Admin</span>
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full ml-1 font-medium">Painel Admin</span>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -100,7 +114,7 @@ export default async function AdminPage() {
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Painel Administrativo</h1>
-          <p className="text-gray-500 text-sm mt-1">Acompanhe o progresso dos colaboradores.</p>
+          <p className="text-gray-500 text-sm mt-1">Acompanhe em tempo real o progresso e os resultados de cada colaborador.</p>
         </div>
 
         {/* Cards de métricas */}
@@ -115,8 +129,8 @@ export default async function AdminPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="font-semibold text-gray-800">Colaboradores</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Gerencie alunos e administradores da plataforma</p>
+              <h2 className="font-semibold text-gray-800 text-base">Colaboradores</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Acompanhamento individualizado do treinamento</p>
             </div>
             <InviteUserModal />
           </div>
@@ -124,59 +138,76 @@ export default async function AdminPage() {
           {studentsWithProgress.length === 0 ? (
             <div className="p-12 text-center text-gray-400">
               <p className="text-4xl mb-3">👤</p>
-              <p>Nenhum aluno cadastrado ainda.</p>
-              <p className="text-sm mt-1">Crie usuários no painel do Supabase.</p>
+              <p className="font-medium text-gray-600">Nenhum aluno cadastrado ainda.</p>
+              <p className="text-sm mt-1">Cadastre colaboradores usando o botão acima.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 text-left">
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Departamento</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Progresso</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Módulo Atual</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Média</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide"></th>
+                    <th className="px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome</th>
+                    <th className="px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Departamento</th>
+                    <th className="px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Progresso</th>
+                    <th className="px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Situação Atual</th>
+                    <th className="px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Média</th>
+                    <th className="px-6 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wide text-right">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {studentsWithProgress.map((student) => (
-                    <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={student.id} className="hover:bg-gray-50/80 transition-colors">
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-gray-800">{student.full_name || '—'}</p>
+                          <p className="font-medium text-gray-900">{student.full_name || '—'}</p>
                           <p className="text-xs text-gray-400">{student.email}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-600">{student.department || '—'}</td>
+                      <td className="px-6 py-4 text-gray-600 font-medium text-xs">{student.department || '—'}</td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 bg-gray-100 rounded-full h-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-24 bg-gray-100 rounded-full h-2 overflow-hidden">
                             <div
-                              className="bg-green-500 h-1.5 rounded-full"
-                              style={{ width: `${(student.completed / 10) * 100}%` }}
+                              className="bg-green-500 h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(100, (student.completed / 10) * 100)}%` }}
                             />
                           </div>
-                          <span className="text-xs text-gray-500">{student.completed}/10</span>
+                          <span className="text-xs font-semibold text-gray-700">{student.completed}/10</span>
+                          <span className="text-xs text-gray-400">({Math.round((student.completed / 10) * 100)}%)</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-600 text-xs">{student.currentModule}</td>
+                      <td className="px-6 py-4 text-gray-700 text-xs font-medium">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs ${
+                          student.completed === 10
+                            ? 'bg-green-100 text-green-700'
+                            : student.currentModule.includes('Em andamento')
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : student.completed > 0
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          {student.currentModule}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         {student.avgScore !== null ? (
-                          <span className={`font-semibold ${student.avgScore >= 75 ? 'text-green-600' : 'text-yellow-600'}`}>
+                          <span className={`font-bold text-xs px-2 py-0.5 rounded-md ${
+                            student.avgScore >= 75
+                              ? 'bg-green-50 text-green-700 border border-green-200'
+                              : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                          }`}>
                             {student.avgScore}%
                           </span>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-gray-400 text-xs">—</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 text-right">
                         <Link
                           href={`/admin/users/${student.id}`}
-                          className="text-xs text-green-600 hover:text-green-700 font-medium"
+                          className="text-xs text-green-600 hover:text-green-700 font-semibold inline-flex items-center gap-1 hover:underline"
                         >
-                          Ver detalhe →
+                          Ver detalhes →
                         </Link>
                       </td>
                     </tr>
@@ -196,21 +227,18 @@ function MetricCard({ title, value, icon }: { title: string; value: string | num
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
       <div className="text-2xl mb-2">{icon}</div>
       <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-500 mt-1">{title}</p>
+      <p className="text-xs text-gray-500 mt-1 font-medium">{title}</p>
     </div>
   )
 }
 
-// Client component para logout
 function LogoutButton() {
   return (
-    <form action="/api/auth/logout" method="post">
-      <Link
-        href="/login"
-        className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-      >
-        Sair
-      </Link>
-    </form>
+    <Link
+      href="/login"
+      className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+    >
+      Sair
+    </Link>
   )
 }

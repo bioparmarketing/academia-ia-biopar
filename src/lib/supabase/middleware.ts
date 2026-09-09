@@ -32,8 +32,8 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Rotas públicas
-  if (pathname.startsWith('/login')) {
-    if (user) {
+  if (pathname.startsWith('/login') || pathname.startsWith('/set-password') || pathname.startsWith('/api/')) {
+    if (user && pathname.startsWith('/login')) {
       // Usuário autenticado: redirecionar para home
       return NextResponse.redirect(new URL('/', request.url))
     }
