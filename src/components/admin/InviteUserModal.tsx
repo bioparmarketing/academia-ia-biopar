@@ -7,18 +7,15 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [department, setDepartment] = useState('')
+  const [password, setPassword] = useState('')
   const [role, setRole] = useState<'student' | 'admin'>('student')
   const [loading, setLoading] = useState(false)
-  const [generatedLink, setGeneratedLink] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setMessage(null)
-    setGeneratedLink(null)
-    setCopied(false)
 
     try {
       const res = await fetch('/api/admin/invite', {
@@ -28,50 +25,42 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
           email,
           full_name: fullName,
           role,
-          department
+          department,
+          password
         })
       })
 
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Erro ao enviar convite.')
+        throw new Error(data.error || 'Erro ao criar conta.')
       }
 
       setMessage({ type: 'success', text: data.message })
-      if (data.actionUrl) {
-        setGeneratedLink(data.actionUrl)
-      } else {
-        // Se foi enviado e-mail com sucesso e não precisa de link manual
-        setEmail('')
-        setFullName('')
-        setDepartment('')
-        setRole('student')
-      }
+      setEmail('')
+      setFullName('')
+      setDepartment('')
+      setPassword('')
+      setRole('student')
 
       if (onUserInvited) onUserInvited()
 
+      setTimeout(() => {
+        setIsOpen(false)
+        setMessage(null)
+      }, 3500)
+
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao processar convite.'
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar conta.'
       setMessage({ type: 'error', text: errorMessage })
     } finally {
       setLoading(false)
     }
   }
 
-  function handleCopy() {
-    if (generatedLink) {
-      navigator.clipboard.writeText(generatedLink)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2500)
-    }
-  }
-
   function handleClose() {
     setIsOpen(false)
     setMessage(null)
-    setGeneratedLink(null)
-    setCopied(false)
   }
 
   return (
@@ -83,14 +72,14 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
-        Convidar Novo Colaborador
+        Criar Novo Usuário
       </button>
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-gray-100">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">Novo Colaborador</h3>
+              <h3 className="text-lg font-bold text-gray-900">Cadastrar Novo Usuário</h3>
               <button
                 onClick={handleClose}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-lg cursor-pointer"
@@ -99,11 +88,11 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
               </button>
             </div>
 
-            <p className="text-xs text-gray-500 mb-6">
-              Será disparado um convite oficial com link exclusivo para que a pessoa cadastre sua própria senha e acesse a plataforma.
+            <p className="text-xs text-gray-500 mb-5">
+              Crie o acesso do colaborador já com a senha definida para que ele possa entrar imediatamente na plataforma.
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Nome Completo
@@ -111,16 +100,16 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
                 <input
                   type="text"
                   required
-                  placeholder="Ex: João da Silva"
+                  placeholder="Ex: Carlos Eduardo"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  E-mail Corporativo
+                  E-mail de Acesso
                 </label>
                 <input
                   type="email"
@@ -128,7 +117,21 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
                   placeholder="colaborador@biopar.agr.br"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Senha Provisória ou Definitiva (mínimo 6 caracteres)
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
                 />
               </div>
 
@@ -138,10 +141,10 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
                 </label>
                 <input
                   type="text"
-                  placeholder="Ex: P&D, Comercial, Marketing"
+                  placeholder="Ex: PDI, Comercial, Marketing"
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
                 />
               </div>
 
@@ -149,7 +152,7 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Papel na Plataforma
                 </label>
-                <div className="grid grid-cols-2 gap-3 mt-1.5">
+                <div className="grid grid-cols-2 gap-3 mt-1">
                   <button
                     type="button"
                     onClick={() => setRole('student')}
@@ -187,45 +190,21 @@ export default function InviteUserModal({ onUserInvited }: { onUserInvited?: () 
                 </div>
               )}
 
-              {/* Se foi gerado link direto de ativação */}
-              {generatedLink && (
-                <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl space-y-2">
-                  <p className="text-xs font-semibold text-gray-700">Link Direto de Ativação:</p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      readOnly
-                      value={generatedLink}
-                      className="w-full bg-white px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-600 select-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCopy}
-                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-semibold transition shrink-0 cursor-pointer"
-                    >
-                      {copied ? 'Copiado! ✓' : 'Copiar'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 pt-2">
+              <div className="flex items-center gap-3 pt-3">
                 <button
                   type="button"
                   onClick={handleClose}
                   className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 transition cursor-pointer"
                 >
-                  {generatedLink ? 'Fechar' : 'Cancelar'}
+                  Cancelar
                 </button>
-                {!generatedLink && (
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white text-sm font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    {loading ? 'Disparando...' : 'Enviar Convite'}
-                  </button>
-                )}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white text-sm font-semibold rounded-xl transition cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {loading ? 'Criando...' : 'Salvar Acesso'}
+                </button>
               </div>
             </form>
           </div>
