@@ -38,31 +38,71 @@ Responda SEMPRE em JSON válido com este formato exato:
   "can_continue": boolean (true se score >= 75)
 }`
 
+export interface EvaluationContext {
+  instructions?: string
+  hints?: string[]
+}
+
 // ============================================================
 // Modo MOCK para desenvolvimento sem OpenAI
 // ============================================================
-function getMockEvaluation(prompt: string): TutorEvaluation {
+function getMockEvaluation(prompt: string, context?: EvaluationContext): TutorEvaluation {
   const lower = prompt.toLowerCase()
-  const hasObjective = lower.includes('pesquisa') || lower.includes('resumo') || lower.includes('análise') || lower.includes('quero')
-  const hasContext = lower.includes('soja') || lower.includes('milho') || lower.includes('agrícola') || lower.includes('cultura') || lower.includes('bacillus') || lower.includes('microrganismo') || lower.length > 80
-  const hasSources = lower.includes('artigo') || lower.includes('científic') || lower.includes('fonte') || lower.includes('anos')
-  const hasFormat = lower.includes('tópico') || lower.includes('tabela') || lower.includes('resumo') || lower.includes('lista') || lower.includes('formato')
+  
+  // Objetivo: verbos de ação e clareza de intenção
+  const objectiveKeywords = [
+    'pesquisa', 'resumo', 'análise', 'analise', 'quero', 'estruture',
+    'elabore', 'crie', 'compare', 'avalie', 'liste', 'identifique',
+    'extraia', 'descreva', 'organize', 'explique', 'desenvolva', 'proponha'
+  ]
+  const hasObjective = objectiveKeywords.some((k) => lower.includes(k)) || prompt.trim().split(/\s+/).length >= 8
+
+  // Contexto: termos agro/bioparque ou descrição com tamanho suficiente
+  const contextKeywords = [
+    'soja', 'milho', 'agrícola', 'agricola', 'cultura', 'bacillus',
+    'microrganismo', 'bio', 'pdi', 'ensaio', 'fung', 'praga', 'inoculante',
+    'planta', 'campo', 'fitossanit', 'doenç', 'dose', 'eficácia', 'eficacia',
+    'cepa', 'isolado', 'experimento', 'laboratório', 'laboratorio', 'bioinsumo'
+  ]
+  const hasContext = contextKeywords.some((k) => lower.includes(k)) || prompt.length > 70
+
+  // Fontes, critérios, limites ou período
+  const sourcesKeywords = [
+    'artigo', 'científic', 'cientific', 'fonte', 'anos', 'referência',
+    'referencia', 'base', 'critério', 'criterio', 'regras', 'metodologia',
+    'periódico', 'periodico', 'pubmed', 'dados', 'laudo', 'relatório',
+    'relatorio', 'evidência', 'evidencia', 'exemplo', 'protocolo', 'documento',
+    'parâmetro', 'parametro', 'premissa', 'restrição', 'restricao'
+  ]
+  const hintsMatch = context?.hints && context.hints.some((h) => lower.includes(h.toLowerCase()))
+  const hasSources = sourcesKeywords.some((k) => lower.includes(k)) || Boolean(hintsMatch) || prompt.length > 90
+
+  // Formato da resposta
+  const formatKeywords = [
+    'tópico', 'topico', 'tabela', 'resumo', 'lista', 'formato', 'seç',
+    'sec', 'item', 'bullet', 'passo a passo', 'json', 'markdown', 'estrutura'
+  ]
+  const hasFormat =
+    formatKeywords.some((k) => lower.includes(k)) ||
+    prompt.includes('- ') ||
+    prompt.includes('1.') ||
+    prompt.includes('\n')
 
   const score = [hasObjective, hasContext, hasSources, hasFormat].filter(Boolean).length * 25
   const missing: string[] = []
 
   if (!hasObjective) missing.push('Objetivo claro do pedido')
-  if (!hasContext) missing.push('Contexto (cultura, espécie ou área de aplicação)')
-  if (!hasSources) missing.push('Tipo de fonte a priorizar (artigos, relatórios, período)')
-  if (!hasFormat) missing.push('Formato desejado da resposta (tópicos, tabela, resumo)')
+  if (!hasContext) missing.push('Contexto prático ou premissas')
+  if (!hasSources) missing.push('Tipo de fonte, critérios ou regras a priorizar')
+  if (!hasFormat) missing.push('Formato desejado da resposta (ex: tópicos, tabela, resumo)')
 
   let feedback = ''
   if (score >= 75) {
-    feedback = 'Excelente! Seu prompt está bem estruturado. Você forneceu as informações essenciais para uma resposta de qualidade.'
+    feedback = 'Excelente! Seu prompt está muito bem estruturado, específico e atende às boas práticas do exercício.'
   } else if (score >= 50) {
-    feedback = `Bom começo! Você acertou alguns pontos importantes. Para melhorar, acrescente: ${missing.slice(0, 2).join(' e ')}.`
+    feedback = `Bom progresso! Você cobriu pontos importantes. Para deixá-lo ainda mais assertivo, inclua: ${missing.slice(0, 2).join(' e ')}.`
   } else {
-    feedback = `Seu prompt precisa de mais detalhes. Tente incluir: objetivo claro, contexto da pesquisa, tipo de fonte preferida e o formato que espera receber.`
+    feedback = `Seu prompt precisa de mais detalhes para guiar a IA. Tente especificar: objetivo claro, contexto/premissas, critérios de checagem e o formato de saída esperado.`
   }
 
   return {
@@ -80,10 +120,17 @@ function getMockEvaluation(prompt: string): TutorEvaluation {
 // ============================================================
 // Avaliação real via OpenAI
 // ============================================================
-async function getOpenAIEvaluation(prompt: string): Promise<TutorEvaluation> {
+async function getOpenAIEvaluation(
+  prompt: string,
+  context?: EvaluationContext
+): Promise<TutorEvaluation> {
   const client = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   })
+
+  const userContent = context?.instructions
+    ? `Exercício proposto: "${context.instructions}"\nDicas esperadas: ${context.hints?.join(', ') || 'N/A'}\n\nPrompt enviado pelo aluno para avaliação:\n"${prompt}"`
+    : `Avalie o seguinte prompt do aluno:\n\n"${prompt}"`
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
@@ -91,7 +138,7 @@ async function getOpenAIEvaluation(prompt: string): Promise<TutorEvaluation> {
       { role: 'system', content: TUTOR_SYSTEM_PROMPT },
       {
         role: 'user',
-        content: `Avalie o seguinte prompt do aluno:\n\n"${prompt}"`,
+        content: userContent,
       },
     ],
     response_format: { type: 'json_object' },
@@ -111,13 +158,16 @@ async function getOpenAIEvaluation(prompt: string): Promise<TutorEvaluation> {
 // ============================================================
 // Função principal exportada
 // ============================================================
-export async function evaluatePrompt(userPrompt: string): Promise<TutorEvaluation> {
+export async function evaluatePrompt(
+  userPrompt: string,
+  context?: EvaluationContext
+): Promise<TutorEvaluation> {
   const isMockMode = process.env.AI_MOCK_MODE === 'true'
 
   if (isMockMode) {
     // Simular um pequeno delay para parecer realista
     await new Promise((resolve) => setTimeout(resolve, 800))
-    return getMockEvaluation(userPrompt)
+    return getMockEvaluation(userPrompt, context)
   }
 
   if (!process.env.OPENAI_API_KEY) {
@@ -125,7 +175,7 @@ export async function evaluatePrompt(userPrompt: string): Promise<TutorEvaluatio
   }
 
   try {
-    return await getOpenAIEvaluation(userPrompt)
+    return await getOpenAIEvaluation(userPrompt, context)
   } catch (error) {
     if (error instanceof Error) {
       // Erros específicos da OpenAI

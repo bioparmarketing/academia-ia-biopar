@@ -39,8 +39,10 @@ export async function POST(request: NextRequest) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 
-                    (request.headers.get('origin') ?? 'https://academia-ia-biopar.vercel.app')
+    const origin = request.headers.get('origin')
+    const siteUrl = origin && !origin.includes('localhost')
+      ? origin
+      : (process.env.NEXT_PUBLIC_SITE_URL || 'https://academia-ia-biopar-three.vercel.app')
 
     // inviteUserByEmail dispara o e-mail oficial do Supabase para o usuário definir sua senha
     const { data: inviteData, error: inviteError } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest) {
         role: selectedRole,
         department: department || ''
       },
-      redirectTo: `${siteUrl}/login`
+      redirectTo: `${siteUrl}/set-password`
     })
 
     if (inviteError) {

@@ -31,7 +31,11 @@ export default function StepAIPractice({ step, activityId, userId, onNext }: Pro
       const res = await fetch('/api/tutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({
+          prompt,
+          instructions: step.instructions,
+          hints: step.hints,
+        }),
       })
 
       if (!res.ok) {

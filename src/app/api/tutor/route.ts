@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
     // Obter prompt do body
     const body = await request.json()
-    const { prompt } = body
+    const { prompt, instructions, hints } = body
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
       return NextResponse.json(
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Avaliar prompt
-    const evaluation = await evaluatePrompt(prompt.trim())
+    const evaluation = await evaluatePrompt(prompt.trim(), { instructions, hints })
 
     return NextResponse.json(evaluation)
   } catch (error) {
