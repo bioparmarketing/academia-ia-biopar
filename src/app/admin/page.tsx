@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import InviteUserModal from '@/components/admin/InviteUserModal'
@@ -17,14 +18,20 @@ export default async function AdminPage() {
 
   if (profile?.role !== 'admin') redirect('/')
 
-  // Buscar métricas usando service role via API ou join
-  const { data: allProfiles } = await supabase
+  // Usar admin client para buscar métricas e todos os colaboradores com segurança
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  )
+
+  const { data: allProfiles } = await adminClient
     .from('profiles')
     .select('*')
     .eq('role', 'student')
     .order('created_at', { ascending: false })
 
-  const { data: allProgress } = await supabase
+  const { data: allProgress } = await adminClient
     .from('user_progress')
     .select('*')
 

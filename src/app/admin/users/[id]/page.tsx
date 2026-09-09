@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
@@ -35,8 +36,14 @@ export default async function AdminUserDetailPage({ params }: Props) {
     .single()
   if (adminProfile?.role !== 'admin') redirect('/')
 
+  const adminClient = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  )
+
   // Buscar dados do aluno
-  const { data: student } = await supabase
+  const { data: student } = await adminClient
     .from('profiles')
     .select('*')
     .eq('id', id)
@@ -45,14 +52,14 @@ export default async function AdminUserDetailPage({ params }: Props) {
   if (!student) redirect('/admin')
 
   // Buscar progresso do aluno
-  const { data: progress } = await supabase
+  const { data: progress } = await adminClient
     .from('user_progress')
     .select('*, modules(number, title)')
     .eq('user_id', id)
     .order('modules(number)')
 
   // Buscar tentativas
-  const { data: attempts } = await supabase
+  const { data: attempts } = await adminClient
     .from('activity_attempts')
     .select('*, activities(title, activity_type)')
     .eq('user_id', id)
