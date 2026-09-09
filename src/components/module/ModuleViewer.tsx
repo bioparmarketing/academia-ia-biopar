@@ -63,8 +63,7 @@ export default function ModuleViewer({ module, activities, initialProgress, cour
         moduleNumber={module.number}
         score={finalScore}
         onBack={() => {
-          router.push('/')
-          router.refresh()
+          window.location.href = '/'
         }}
       />
     )

@@ -3,6 +3,9 @@ import { redirect } from 'next/navigation'
 import ModuleViewer from '@/components/module/ModuleViewer'
 import type { Module } from '@/lib/types'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 interface Props {
   params: Promise<{ id: string }>
 }
@@ -39,7 +42,7 @@ export default async function ModulePage({ params }: Props) {
     .select('*')
     .eq('user_id', user.id)
     .eq('module_id', id)
-    .single()
+    .maybeSingle()
 
   // Verificar se módulo está disponível (primeiro módulo ou anterior concluído)
   const { data: allModules } = await supabase
@@ -57,7 +60,7 @@ export default async function ModulePage({ params }: Props) {
         .select('status')
         .eq('user_id', user.id)
         .eq('module_id', prevModule.id)
-        .single()
+        .maybeSingle()
 
       if (prevProgress?.status !== 'completed') {
         redirect('/')
