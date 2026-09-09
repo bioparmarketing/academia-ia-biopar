@@ -54,7 +54,36 @@ export async function POST(request: NextRequest) {
       redirectTo: `${siteUrl}/set-password`
     })
 
+    // 4. Se o usuário já existe, gerar novo link de recuperação/definição de senha
     if (inviteError) {
+      if (inviteError.message.includes('already registered') || inviteError.message.includes('already been registered')) {
+        const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
+          type: 'recovery',
+          email,
+          options: { redirectTo: `${siteUrl}/set-password` }
+        })
+
+        if (linkError) {
+          return NextResponse.json({ error: 'Usuário já cadastrado, mas ocorreu um erro ao gerar link de redefinição.' }, { status: 400 })
+        }
+
+        // Atualizar perfil com o papel/departamento caso tenha mudado
+        const { data: existingUser } = await adminSupabase.from('profiles').select('id').eq('email', email).single()
+        if (existingUser?.id) {
+          await adminSupabase.from('profiles').update({
+            full_name: full_name || undefined,
+            role: selectedRole,
+            department: department || undefined
+          }).eq('id', existingUser.id)
+        }
+
+        return NextResponse.json({
+          success: true,
+          actionUrl: linkData?.properties?.action_link,
+          message: `O e-mail ${email} já possui cadastro! Um novo link para definir a senha foi gerado.`
+        })
+      }
+
       return NextResponse.json({ error: inviteError.message }, { status: 400 })
     }
 

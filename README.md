@@ -152,12 +152,12 @@ Após aplicar as migrations:
 | # | Módulo | Status |
 |---|---|---|
 | 1 | Entendendo a Inteligência Artificial | ✅ Implementado |
-| 2 | Como conversar com uma IA | 🔒 Em breve |
-| 3 | Anatomia de um bom prompt | 🔒 Em breve |
-| 4 | IA aplicada à pesquisa | 🔒 Em breve |
-| 5 | IA aplicada à pesquisa científica | 🔒 Em breve |
-| 6 | Análise de documentos com IA | 🔒 Em breve |
-| 7 | Escrita e estruturação de trabalhos | 🔒 Em breve |
-| 8 | Como identificar erros da IA | 🔒 Em breve |
-| 9 | Técnicas intermediárias de uso | 🔒 Em breve |
-| 10 | Desafio prático PDI | 🔒 Em breve |
+| 2 | Como conversar com uma IA | ✅ Implementado |
+| 3 | Anatomia de um bom prompt | ✅ Implementado |
+| 4 | IA aplicada à pesquisa | ✅ Implementado |
+| 5 | IA aplicada à pesquisa científica | ✅ Implementado |
+| 6 | Análise de documentos com IA | ✅ Implementado |
+| 7 | Escrita e estruturação de trabalhos | ✅ Implementado |
+| 8 | Como identificar erros da IA | ✅ Implementado |
+| 9 | Técnicas intermediárias de uso | ✅ Implementado |
+| 10 | Desafio prático PDI | ✅ Implementado |
