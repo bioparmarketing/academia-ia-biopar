@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import InviteUserModal from '@/components/admin/InviteUserModal'
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -105,8 +106,12 @@ export default async function AdminPage() {
 
         {/* Tabela de alunos */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-800">Colaboradores</h2>
+          <div className="p-6 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-semibold text-gray-800">Colaboradores</h2>
+              <p className="text-xs text-gray-400 mt-0.5">Gerencie alunos e administradores da plataforma</p>
+            </div>
+            <InviteUserModal />
           </div>
 
           {studentsWithProgress.length === 0 ? (
